@@ -1,75 +1,42 @@
 import _ from 'lodash';
 
-const stringifyTab = (depth) => {
-  const linesTabCount = depth * 4 - 2;
-  const bracketTabCount = depth * 4 - 4;
-  const linesTab = ' '.repeat(linesTabCount);
-  const bracketTab = ' '.repeat(bracketTabCount);
-  return { linesTab, bracketTab };
-};
-
-const getProp = (data, depth) => {
-  if (!_.isPlainObject(data)) return data;
-
-  const keys = Object.keys(data);
-  const { linesTab, bracketTab } = stringifyTab(depth);
-
-  const lines = keys.map((key) => {
-    const value = data[key];
-    return `${linesTab}  ${key}: ${getProp(value, depth + 1)}`;
+const iterNested = (data, depthNested, replacer = ' ', spaceCount = 4) => {
+  if (!_.isObject(data)) return `${data}`;
+  const lines = Object.entries(data).map(([key, value]) => {
+    const preparedValue = iterNested(value, depthNested + 1);
+    const indent = replacer.repeat(depthNested * spaceCount);
+    return `${indent}${key}: ${preparedValue}`;
   });
-
-  return `{\n${lines.join('\n')}\n${bracketTab}}`;
+  const outIndent = replacer.repeat((depthNested * spaceCount) - spaceCount);
+  const result = ['{', ...lines, `${outIndent}}`].join('\n');
+  return result;
 };
 
-const formatStylish = (data, depth = 1) => {
-  const { linesTab, bracketTab } = stringifyTab(depth);
-
-  const lines = data.map((item) => {
-    const {
-      operation,
-      key,
-    } = item;
-
-    switch (operation) {
-      case 'nested': {
-        const { children } = item;
-
-        return `${linesTab}  ${key}: ${formatStylish(children, depth + 1)}`;
+const getStylish = (file, replacer = ' ', spaceCount = 4) => {
+  const iter = (data, depth) => {
+    if (!_.isObject(data)) return `${data}`;
+    const lines = data.map((item) => {
+      const preparedValue = iterNested(item.value, depth + 1);
+      const indent = replacer.repeat(depth * spaceCount - 2);
+      switch (item.type) {
+        case 'unchanged':
+          return `${indent}  ${item.key}: ${preparedValue}`;
+        case 'deleted':
+          return `${indent}- ${item.key}: ${preparedValue}`;
+        case 'added':
+          return `${indent}+ ${item.key}: ${preparedValue}`;
+        case 'changed':
+          return `${indent}- ${item.key}: ${iterNested(item.value1, depth + 1)}\n${indent}+ ${item.key}: ${iterNested(item.value2, depth + 1)}`;
+        case 'nested':
+          return `${replacer.repeat(depth * spaceCount)}${item.key}: ${iter(item.children, depth + 1)}`;
+        default:
+          throw new Error(`Этого типа не существует: ${item.type}`);
       }
-
-      case 'add': {
-        const { value } = item;
-
-        return `${linesTab}+ ${key}: ${getProp(value, depth + 1)}`;
-      }
-
-      case 'remove': {
-        const { value } = item;
-
-        return `${linesTab}- ${key}: ${getProp(value, depth + 1)}`;
-      }
-
-      case 'update': {
-        const {
-          value1,
-          value2,
-        } = item;
-
-        return `${linesTab}- ${key}: ${getProp(value1, depth + 1)}\n${linesTab}+ ${key}: ${getProp(value2, depth + 1)}`;
-      }
-
-      case 'nochange': {
-        const { value } = item;
-        return `${linesTab}  ${key}: ${getProp(value, depth + 1)}`;
-      }
-
-      default:
-        return '';
-    }
-  });
-
-  return `{\n${lines.join('\n')}\n${bracketTab}}`;
+    });
+    const outIndent = replacer.repeat((depth * spaceCount) - spaceCount);
+    const result = ['{', ...lines, `${outIndent}}`].join('\n');
+    return result;
+  };
+  return iter(file, 1);
 };
-
-export default formatStylish;
+export default getStylish;

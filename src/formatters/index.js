@@ -1,16 +1,16 @@
-import formatStylish from './stylish.js';
-import formatPlain from './plain.js';
+import getStylish from './stylish.js';
+import getPlain from './plain.js';
 
-const formatDiff = (diff, formatName) => {
-  const formatters = {
-    stylish: formatStylish,
-    plain: formatPlain,
-    json: (data) => JSON.stringify(data, null, 2),
-    undefined: formatStylish,
-  };
-  const formatter = formatters[formatName];
-
-  return formatter(diff);
+const getFormatStyle = (innerTree, format) => {
+  switch (format) {
+    case 'stylish':
+      return getStylish(innerTree);
+    case 'plain':
+      return getPlain(innerTree);
+    case 'json':
+      return JSON.stringify(innerTree);
+    default:
+      throw new Error(`Формат не поддерживается: ${format}`);
+  }
 };
-
-export default formatDiff;
+export default getFormatStyle;
